@@ -1,0 +1,39 @@
+Package: scpopulation
+Title: Population Data and Projections for South Carolina Counties
+Version: 0.2.0
+Authors@R: c(
+    person("N J", "Pinder", , "nicholas.pinder@des.sc.gov", role = c("aut")),
+    person("C A", "Pellett", , "c.alex.pellett@gmail.com", role = c("aut", "cre")),
+    person("Laljeet", "Sangha", , "lsangha@ucanr.edu", role = "ctb"),
+    person("State of South Carolina Department of Environmental Services", role = "fnd")
+  )
+Maintainer: Nicholas Pinder <nicholas.pinder@des.sc.gov>
+Description: Provides historical population data and future population projections 
+    for South Carolina counties. Contains data from the SC Office of Revenue and 
+    Fiscal Affairs (RFA), with extensions to 2070 and additional high-growth 
+    scenarios. Includes tools for visualization and analysis of population trends.
+License: MIT + file LICENSE
+URL: https://github.com/capellett/scpopulation, https://capellett.github.io/scpopulation/
+BugReports: https://github.com/capellett/scpopulation/issues
+Depends: 
+    R (>= 4.5)
+Imports:
+    ggplot2,
+    dplyr,
+    tidyr,
+    stringr,
+    scales,
+    shiny,
+    forcats,
+    DT,
+    tidycensus,
+    sf
+Suggests:
+    knitr,
+    testhat,
+    rmarkdown
+VignetteBuilder: knitr
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
