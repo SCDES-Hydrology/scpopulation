@@ -1,0 +1,108 @@
+---
+title: "Population Projection Results"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Population Projection Results}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+load("../data/pop_proj.rda")
+```
+
+Complete results are provided in the table below. Column documentation can be found in the "pop_proj" entry in the Reference page.
+
+```{r echo = F, eval=F, warning=F}
+help("pop_proj")
+
+?pop_proj
+
+data?pop_proj
+
+vignette('Introduction', package='scpopulation')
+
+vignette('introduction', package='scpopulation')
+
+vignette('intro', package='scpopulation')
+```
+
+```{r echo=F}
+DT::datatable(
+  data = pop_proj, 
+  filter='top', 
+  rownames = FALSE,
+  # width=18,
+  extensions = c('Buttons'),
+  options = list(
+    order = list(1, 'asc'),
+    buttons = c('copy', 'csv', 'excel'), #  'colvis',
+    # autoWidth = FALSE,
+    search = list(regex = TRUE),
+    # autoHideNavigation = TRUE,
+    # colReorder = TRUE,
+    # scroller = TRUE,
+    # scrollY = 600,
+    # scrollX = TRUE,
+    dom = 'tBlip', # 'Blftip',
+    pageLength = 25))
+  
+```
+
+```{r echo=F}
+
+## Show animated cohort-component plots.
+## Provide searchable tables for download.
+```
+
+```{r, echo=F, eval=F}
+
+unique(pop_proj$Period)
+unique(pop_proj$Scenario)
+unique(pop_proj$Type)
+unique(pop_proj$Type2)
+unique(pop_proj$County)
+
+# pop_proj |>
+#   dplyr::filter(Period == 'Original' & Edition == '2022' & County == 'SOUTH CAROLINA' & 
+#                   Type2 %in% c('Estimate', '2022 RFA Projection')) |>
+#   dplyr::select(Year, Population) |>
+#   write.csv(file='RFA 2022 Vintage Statewide Population Projections.csv')
+
+```
+
+```{r echo=F, eval=F}
+
+unique(pop_proj$Edition)
+
+pop_proj_x <- pop_proj |>
+  dplyr::filter(Edition == '2022')
+
+unique(pop_proj_x$Scenario)
+unique(pop_proj_x$Type)
+unique(pop_proj_x$Type2)
+
+unique(pop_proj_x$Period)
+
+pop_proj_x |>
+  dplyr::filter(Scenario == 'Estimate') |>
+  dplyr::select(County, Year, Population) |>
+  tidyr::pivot_wider(names_from=Year, values_from=Population) |>
+  readr::write_excel_csv('export//Population_historic.csv')
+
+pop_proj_x |>
+  dplyr::filter(Scenario == 'Moderate') |>
+  dplyr::select(County, Year, Population) |>
+  tidyr::pivot_wider(names_from=Year, values_from=Population) |>
+  readr::write_excel_csv('export//Population_moderate.csv')
+
+pop_proj_x |>
+  dplyr::filter(Scenario == 'High') |>
+  dplyr::select(County, Year, Population) |>
+  tidyr::pivot_wider(names_from=Year, values_from=Population) |>
+  readr::write_excel_csv('export//Population_high.csv')
+
+```
