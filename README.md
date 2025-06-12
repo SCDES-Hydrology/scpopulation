@@ -18,7 +18,7 @@ This package was developed by Dr. Charles Alex Pellett, while working at
 the South Carolina Department of Natural Resources (SC DNR) and
 subsequently the South Carolina Department of Environmental Services (SC
 DES). This package is currently being maintained by Nicholas Pinder, while
-wokring as a Hydrologist at the State of South Carolina Department of 
+working as a Hydrologist at the State of South Carolina Department of 
 Environmental Services. This information is intended for research and long-term water
 planning. None of the above guarantees the accuracy, reliability, or
 completeness of this information. The SC RFA, SC DNR, SC DES, and
