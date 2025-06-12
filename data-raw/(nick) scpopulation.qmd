@@ -1,0 +1,388 @@
+---
+title: "(nick) scpopulation"
+format: html
+editor: visual
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = true)
+library(tidyverse)
+```
+
+Two editions of the SC ORFA population projections are reviewed and compared. The earlier edition (November 2019) includes population estimates from 2000 to 2018 and projections from 2019 to 2035. The more recent edition (August 2022) includes estimates from 2010 to 2020 and projections from 2021 to 2038.
+
+Only county total population numbers are relevant to my analyses at this point.
+
+# Load all the Packages
+
+```{r}
+library(microbenchmark)
+library(dplyr)
+library(readxl)
+library(tidyr)
+library(stringr)
+library(usethis)
+```
+
+# The 2019 Edition
+
+The two code chunks below are the (1) original code chunk and the modified code chunk below. They are both wrapped in the microbenchmark package to determine the time the code took to execute to determine minor improvements.
+
+Note: The code chunks above are doing the same thing, however, the addition of recalling the `dplyr` and `readxl` package were removed more clarity.
+
+(1) **Original**
+
+```{r population-proj-read}
+pop19_raw <- readxl::read_excel("SC population projections through 2035_county totals.xls") %>%                         # Step 1  
+  dplyr::filter(!is.na(County)) %>%      # Step 2
+  dplyr::mutate(`2018 Estimates Total` = as.numeric(`2018 Estimates Total`))                                                 # Step 3 
+
+```
+
+(2) **Modified Code ( \|\> is the new version of %\>%)**
+
+```{r}
+pop19_raw_mod <- read_excel("SC population projections through 2035_county totals.xls") |>
+  filter(!is.na(County)) |> 
+  mutate(`2018 Estimates Total` = as.numeric(`2018 Estimates Total`)) 
+```
+
+The code reads:
+
+[**Step 1:**]{.underline} Open this specific excel file
+
+[**Step 2:**]{.underline} The filter function in the dplyr package creates a subset of the data based on certain criteria we set. In this case, we want all values that are not NA (i.e., `!is.na`) in the County column.
+
+[**Step 3:**]{.underline} The mutate function allows us to create, modify, and edit columns. In this case, we want to take the string column `2018 Estimates Total` and convert it to a numerical value and assign it (i.e., `=`) to a new column called the same thing.
+
+[**Step 4:**]{.underline} This is then all assigned to the variable `pop19_raw`.
+
+## Execution Comparison #1 (For Testing, Not Needed for Code)
+
+Using the `microbenchmark` package we can wrap each code chunk and determine its execution time. In the code below we run 100 evaluations on each expression. We should compare the mean and median values of each to understand the differences, however, the difference is very little (in milliseconds) and varies with every run of the code chunk without setting a seed. Every time you re-run these wrappers the execution gets faster.
+
+[**Note:**]{.underline} This was done to see why we have `::` double semi-colons to call packages and grab their respective functions rather than loading the packages at the beginning, and just calling functions here.
+
+[**Result:**]{.underline} Yes and No doing it that way is faster, sometimes it is and sometimes it isn't. Either way it may be hard for people to read.
+
+```{r}
+#| echo: true
+
+ 
+microbenchmark(
+
+pop19_raw <- readxl::read_excel("C:/Users/pindernj/OneDrive - SCDES/Packages/scpopulation-main/data-raw/SC population projections through 2035_county totals.xls") %>%  
+  dplyr::filter(!is.na(County)) %>%                                                           
+  dplyr::mutate(`2018 Estimates Total` = as.numeric(`2018 Estimates Total`)), times= 1000L   
+
+
+)
+```
+
+```{r}
+
+microbenchmark(
+  
+pop19_raw_mod <- read_excel("C:/Users/pindernj/OneDrive - SCDES/Packages/scpopulation-main/data-raw/SC population projections through 2035_county totals.xls") |>
+  filter(!is.na(County)) |> 
+  mutate(`2018 Estimates Total` = as.numeric(`2018 Estimates Total`)), times= 1000L
+
+
+)
+```
+
+## Reformat according to R Tidyverse standards
+
+1)  **Original Code**
+
+```{r}
+## Make it tidy data
+pop19_gender <- pop19_raw %>%
+  tidyr::pivot_longer(cols = 3:110, 
+                      names_to = c("Year", "Type", "Gender"), 
+                      values_to = "Population", 
+                      names_sep=' ') %>%
+  
+  dplyr::mutate(Year = as.integer(stringr::str_sub(Year, 1 ,4)),
+                Type = stringr::str_sub(Type, end=-2)) %>%
+  
+  dplyr::rename(FIPS = 'FIPS code')
+
+```
+
+The RFA population table has `r nrow(pop2019_raw)` rows and `r ncol(pop2019_raw)` columns - a row for each county and a column for each combination of year and gender. Tables with similar numbers of rows and columns, roughly square shaped, are convenient for reading, but a different form is recommended for coding with R. The raw table is reshaped to *long form* by creating new columns for Year, Type (estimates or projection), Gender (Total, Male, or Female), and Population. This results in `r nrow(pop19)` rows and the following columns: `r scutils::comma_and(names(pop19))`.
+
+```{r}
+## Summarize Totals
+pop19 <- pop19_gender %>%
+  dplyr::filter(Gender=='Total') %>%
+  dplyr::select(-Gender)
+
+```
+
+1)  **Modified Code**
+
+```{r}
+#| echo: true
+## Make it tidy data
+pop19_gender <- pop19_raw %>%
+  pivot_longer(cols = 3:110, 
+               names_to = c("Year", "Type", "Gender"), 
+               values_to = "Population", 
+               names_sep=' ') %>%
+  
+  mutate(Year = as.integer(str_sub(Year, 1 , 4)),
+                Type = str_sub(Type, end=-2)) %>%
+  
+  rename(FIPS = 'FIPS code')
+
+print(pop19_gender)
+```
+
+[**Portion 1:**]{.underline} Definition: The function pivot_longer() allows us to convert wide data into a larger format by gathering specified columns into key-value pairs. **In other words, we flip it to make columns into rows.**
+
+*pop19_gender \<- pop19_raw %\>%* **\# Create a new variable called `pop19_gender`**
+
+*pivot_longer(cols = 3:110,* **\# In columns 3 through 110** *\
+names_to = c("Year", "Type", "Gender"),* **\# Create these three new column names**
+
+*values_to = "Population", names_sep=' ')* **\# Then assign the original values to this new column**
+
+Essentially, the `pop19_raw` had many columns with each years population estimate for each county, but it was hard to read. Especially when we have Male and Female totals as well. So, we flip the data, and it would look something like this:
+
+| FIP   | County    | Estimates            | Value |
+|-------|-----------|----------------------|-------|
+| 00021 | Abbeville | 2000 Estimates Total | 2600  |
+
+[***Note:***]{.underline} *The values displayed above are made up, and meant to just show how it would look.*
+
+***However, this can look better.*** **-\>**
+
+If each county has 35 entries/Years of Total, Male, and Female estimates we can select these columns. Then create three new columns called `Year`, `Type`, and `Gender`. Furthermore, as the population values were rows we need to assign them a column name so others can understand what these numbers represent, and state that we are keeping these original values. So we set `values_to` to `Population` to set the column name, and define that we actually want to use those three new columns. So we use `names_sep` and set it equal to a space (i.e., " ") so it will separate the name strings (headers) these values are assigned to. These broken strings are then automatically set to these new columns (i.e., we broke "Hello World Hi" and "Hello" would then be position 1 (of 3) and become its own new string, and `Year` will take all position 1 strings, and so on)
+
+[**Portion 2:**]{.underline} Definition: str_sub(string, start, end): extracting or replacing the elements at a single position
+
+*mutate(Year = as.integer(str_sub(Year, 1 ,4)),*
+
+**\# We want to select every value/string in the Year column, specifically its 1st through 4 element. If the string is "2011" than Element 1 = 2 and Element 4 = 1. We then want to make them all integers and reassign them to the same column.**
+
+*Type = str_sub(Type, end=-2)) %\>%*
+
+**\# This is a component of the mutate function, just separated it. Now, we want to use the same str_sub function on all values in the Type column. In this case we want to remove the 's' at the end of `Estimates` , however, using -1 on `end=` allows us to essentially backspace. Though, we use `-2` in this case due to the possible presense of a space at the end of the string (i.e., "String ") and allows us to remove the space and 's' elements.**
+
+*rename(FIPS = 'FIPS code')*
+
+**\# Rename the `FIPS Code` column to `FIPS`**
+
+```{r, warnings = false}
+## Summarize Totals
+pop19 <- pop19_gender %>%
+  select(-Gender)
+
+```
+
+In the code chunk above, we are still using the `dpylr` package and are now going to remove the Gender column completely, by putting a `-` before the column name.
+
+# The 2022 Edition
+
+```{r, warnings = false}
+pop22_raw <- readxl::read_excel("C:/Users/pindernj/OneDrive - SCDES/Packages/scpopulation-main/data-raw/BASE20162020_1yrint_5yragrp_V21_11AUG22.xlsx", skip=2) %>%
+  filter(!is.na(`COUNTY NAME`)) 
+
+```
+
+This code is the same for 2019 we looked at previously, however, we set skip=2 in order to pass over or skip the first two rows of the excel sheet. Especially when we have headers or space we do not want imported this can be extremely useful. If you open the original file, you can see that we have a `Estimate Base` row and `Vintage` row that are essentially empty.
+
+[**Note:**]{.underline} the filter in both cases are not actually needed as we can clearly see that all rows in the `County Name` column are there, however, we can leave it in case we change the excel file as a way to warn us.
+
+## Reformat to R Tidyverse Standards
+
+1)  Original Code
+
+```{r, warnings=false}
+pop22_cohort1 <- pop22_raw %>%
+  tidyr::pivot_longer(cols = 4:90, names_to = c("Gender", "Year"), 
+                      values_to = "Population", names_sep=1) %>%
+  dplyr::mutate(Year = as.integer(stringr::str_sub(Year, 1 ,4)),
+                Gender = dplyr::recode(Gender, `T`='Total', 
+                                       `F`='Female', M='Male'),
+                Type = dplyr::if_else(Year<2021, 'Estimate', 'Projection')) %>%
+  dplyr::rename(County='COUNTY NAME', FIPS='COUNTY FIPS')
+
+## Calculate State-wide populations
+pop22_cohort_statewide <- pop22_cohort1 %>%
+  dplyr::group_by(`AGE GROUP`, Gender, Year, Type) %>%
+  dplyr::summarise(Population = sum(Population),
+                   County = "SOUTH CAROLINA")
+
+pop22_cohort <- dplyr::bind_rows(pop22_cohort1, pop22_cohort_statewide) |>
+  dplyr::rename(Age = `AGE GROUP`) |>
+  dplyr::mutate(Age = Age |> 
+                  stringr::str_to_upper() |>
+                  stringr::str_replace(' TO ', '-') |>
+                  forcats::fct_inorder())
+
+```
+
+2)  Modified Code
+
+```{r, warnings=false}
+pop22_cohort1 <- pop22_raw %>%
+  pivot_longer(cols = 4:90, names_to = c("Gender", "Year"), 
+                      values_to = "Population", names_sep=1) |> 
+  
+    mutate(Year = as.integer(str_sub(Year, 1 ,4)),
+                Gender = recode(Gender, `T`='Total', `F`='Female', M='Male'),
+                Type = if_else(Year<2021, 'Estimate', 'Projection')) |> 
+  
+  dplyr::rename(County='COUNTY NAME', FIPS='COUNTY FIPS')
+
+```
+
+In the code chunk above, the process is practically the same as the 2019 data set we viewed previously. However, there are some nuances in pivot and a large difference in mutate.
+
+[**Part 1:**]{.underline}
+
+*pop22_cohort1 \<- pop22_raw %\>%* **\# Assign the following code to this new variable `pop22_cohort`**
+
+*pivot_longer(cols = 4:90,* **\# Select columns 4 through 90, this is defining the data we will be using**
+
+*names_to = c("Gender", "Year"),* **\# First, create these two columns**
+
+*values_to = "Population", names_sep=1) \|\>* **#Remember to save the original values to a new column called `Population`, and separate**
+
+The `values_to` function is the same as the previous one, however, in this case we are setting the separator to a positional argument (1) which means that the letter in front of every year in the header (i.e., T2011, F2011, M2011) will be extracted and leave the year value behind.
+
+After they have been separated remember that they are now 2 separate strings with a position of 1 and 2 and will be assigned to the corresponding columns we have created. As shown below:
+
+| Gender | Year |
+|--------|------|
+| T      | 2011 |
+| F      | 2011 |
+| M      | 2012 |
+| T      | 2012 |
+| M      | 2013 |
+
+[**Part 2:**]{.underline} Definition: recode() - you can replace a numeric, character, or string based on their position or name.
+
+*mutate(Year = as.integer(str_sub(Year, 1 ,4)),* **\# Same as before, make all the `Year` strings into integers by defining the length of the string**
+
+*Gender = recode(Gender, `T`='Total',`F`='Female', `M`='Male'),* **#Dplyr's recode function. We are renaming all instances of `T`, `F`, and `M` into corresponding strings, after we stated that we are doing this in the `Gender` column.**
+
+*Type = if_else(Year\<2021, 'Estimate', 'Projection')) \|\>* **\# if \_else(condition, true, false). Essentially, we are saying that for all the `Year`s that are less than 2021 (not including 2021) are TRUE and need to be assigned to the `Estimate` column, if `Year` is equal to or larger than 2021 then it is FALSE and needs to be assigned to the `Projection` column.**
+
+*rename(County='COUNTY NAME', FIPS='COUNTY FIPS')* **\# We are just renaming two headers at the same time**
+
+1)  Original code
+
+```{r}
+## Calculate State-wide populations
+pop22_cohort_statewide <- pop22_cohort1 %>%
+  
+  dplyr::group_by(`AGE GROUP`, Gender, Year, Type) %>%
+  
+  dplyr::summarise(Population = sum(Population),
+                   County = "SOUTH CAROLINA")
+
+
+
+pop22_cohort <- dplyr::bind_rows(pop22_cohort1, pop22_cohort_statewide) |>
+  dplyr::rename(Age = `AGE GROUP`) |>
+  dplyr::mutate(Age = Age |> 
+                  stringr::str_to_upper() |>
+                  stringr::str_replace(' TO ', '-') |>
+                  forcats::fct_inorder())
+
+```
+
+2)  Modified code
+
+```{r}
+## Calculate State-wide populations
+pop22_cohort_statewide <- pop22_cohort1 |>
+  
+  group_by(`AGE GROUP`, Gender, Year, Type) |>
+  
+  summarise(Population = sum(Population),
+                   County = "SOUTH CAROLINA")
+
+
+
+pop22_cohort <- bind_rows(pop22_cohort1, pop22_cohort_statewide) |>
+  rename(Age = `AGE GROUP`) |>
+  mutate(Age = Age |> 
+                  stringr::str_to_upper() |>
+                  stringr::str_replace(' TO ', '-') |>
+                  forcats::fct_inorder())
+
+```
+
+[**Part 1:**]{.underline}
+
+pop22_cohort_statewide \<- pop22_cohort1 **\# Create a new variable**
+
+group_by(`AGE GROUP`, Gender, Year, Type) **\# Now use group_by to make a grouped tabled where operations are preformed "by group"** **. In this case, we want to group the population by these columns.**
+
+summarise(Population = sum(Population), County = "SOUTH CAROLINA") **\# Using the summarise we want to get the total population of each age group by gender every year, and then change all the county strings to be `South Carolina`**.
+
+[**Part 2:**]{.underline}
+
+pop22_cohort \<- bind_rows(pop22_cohort1, pop22_cohort_statewide) \|\> **\# bind_rows will allows us to combine these data frames**
+
+rename(Age = `AGE GROUP`) \|\> **\# Rename the`Age Group` column to be `Age`**
+
+mutate(Age = Age \|\> **\# In the age column,**
+
+str_to_upper() \|\> **\# In the mutate function, make all the strings uppercase**
+
+str_replace(' TO ', '-') \|\> **\# In the mutate, change the `To` in the `Age Group` column to be an `-`**
+
+fct_inorder()) **\# In the mutate, reorder them in the order in which they first appear**
+
+## Summarize Total Populations Across Cohorts
+
+1)  **Original Code**
+
+```{r, warnings = false}
+pop22_gender <- pop22_cohort %>%
+  dplyr::group_by(FIPS, County, Year, Type, Gender) %>%
+  dplyr::summarise(Population=sum(Population), .groups='drop')
+
+pop22 <- pop22_gender %>%
+  dplyr::filter(Gender=='Total') %>%
+  dplyr::select(-Gender)
+```
+
+```{r,warnings = false}
+usethis::use_data(pop19_gender, overwrite=T)
+usethis::use_data(pop19, overwrite=T)
+usethis::use_data(pop22_gender, overwrite=T)
+usethis::use_data(pop22_cohort, overwrite=T)
+usethis::use_data(pop22, overwrite=T)
+
+```
+
+2)  **Modified Code**
+
+```{r, warnings = false}
+pop22_gender <- pop22_cohort|>
+  group_by(FIPS, County, Year, Type, Gender)|>
+  summarise(Population=sum(Population), .groups='drop')
+
+pop22 <- pop22_gender |>
+  filter(Gender=='Total') |>
+  select(-Gender)
+```
+
+In part 1 of the code chunk above is creating a new variable called `pop22_gender` where we group the data by `FIPS`, `County`, `Year`, `Type`, and `Gender` to then preform the following operations. The `summarise` function will do the same as the one prior, however, it will group the `Age Group` column.
+
+```{r,warnings = false}
+
+use_data(pop19_gender, overwrite=T)
+use_data(pop19, overwrite=T)
+use_data(pop22_gender, overwrite=T)
+use_data(pop22_cohort, overwrite=T)
+use_data(pop22, overwrite=T)
+```
+
+I believe this saves them in the project direction inside the Data folder.

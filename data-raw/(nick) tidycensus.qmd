@@ -1,0 +1,232 @@
+---
+title: "(nick) tidycensus"
+author: "Nicholas Pinder"
+format: html
+editor: visual
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# install.packages('tidycensus')
+library(tidycensus)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(purrr)
+library(sf)
+
+## API keys can be obtained at https://api.census.gov/data/key_signup.html
+census_api_key("5e7d8e4412544514a69b804968f0b11aac1a063b", install = TRUE,overwrite=TRUE)
+```
+
+First, be sure to install the `tidycensus` package. There should be a yellow banner at the top of the file saying this package is required if you do not have it installed. From there, go to the following website and use your work email and the department we work for to get an access key. This key will allow you to get more data and the tools to work better (best way to put it), so run the `census_api_key` once and then recomment it back.
+
+The tidycensus package is a package developed for R users to be able to obtain and manipulate U.S Census data through the the use of tidyverse tools (i.e., dplyr, forcats, stringr, etc). We can also obtain `geometry` to help with mapping and spatial analysis so that's cool.
+
+[**Note:**]{.underline} For more detailed information please use the following link made by the creators of the package: [Chapter 2 An introduction to tidycensus \| Analyzing US Census Data](https://walker-data.com/census-r/an-introduction-to-tidycensus.html)
+
+## Get 5 year ACS datasets
+
+Let us first state which kind of data we want, either 1-year or 5-year American Community Survey samples data.
+
+```{r}
+load_variables(dataset='acs5', year=2020)
+
+# the 5-year ACS covers geographies down to the block group, 
+# the 1-year ACS only returns data for geographies of population 65,000+
+# some geographies (e.g. Census tracts) will never be available in the 1-year ACS, 
+# and other geographies (counties) are only partially available.
+
+## go with 5 year ACS
+acs.cnty <- get_acs(
+  state = 'SC',
+  geography = 'county',
+  variables = c(''),
+  survey = 'acs5', ## 1 year acs.
+  year = 2020 ## 2010, 2015, 2020
+)
+
+
+acs.bg <- tidycensus::get_acs(
+  state = 'SC',
+  geography= 'block group',
+  variables = c(''),
+  survey = 'acs5', ## 1 year acs.
+  year = 2020 ## 2010, 2015, 2020
+)
+
+# if users desire an entire table of related variables from the ACS, 
+# should supply the characters prior to the underscore from a variable ID to the table parameter.
+
+```
+
+## Get Population Estimates Program datasets
+
+Lets pull population estimates for all U.S states and even on smaller levels such as counties, cities, and towns from the US Census Bureau's Population Estimates Program (PEP) datasets. By adding the `time_series=True` we can include `Date` codes, that can be rewritten to get actual dates. However, it is Either April 1st or July 1st population estimates, so we are not going to get a more detailed monthly look.
+
+[Note:]{.underline} I am not sure why we are only pulling data from 2010 to 2019
+
+[Url:]{.underline} https://www.rdocumentation.org/packages/tidycensus/versions/1.7.1/topics/get_estimates
+
+**2.Modified Code**
+
+```{r}
+pop.estimates <- tidycensus::get_estimates(
+  geography = "county", ## block group?
+  product =  "characteristics", # Characteristics is the only one available from 2020 onward
+  breakdown = c("SEX", "AGEGROUP"),
+  breakdown_labels = TRUE,
+  state = "SC",
+  year = 2019
+)
+
+pop.estimates <- pop.estimates |>
+  rename('pop.est' = 'value' )
+```
+
+We should rename the value column that we extracted to be `pop.est` instead of just `value` for clarity.
+
+**1.Original Code**
+
+```{r}
+pop.est <- tidycensus::get_estimates(
+  geography = "county", ## block group?
+  product = "characteristics",
+  breakdown = c("SEX", "AGEGROUP"),
+  breakdown_labels = TRUE,
+  state = "SC",
+  year = 2019
+)
+
+
+```
+
+## Get Migration Flows
+
+American Community migration flows are derived from surveys where individuals will answer the question: Where did you live 1 year ago? These estimates are collected continuously and resemble the annual number of movers.
+
+Url: https://www.census.gov/data/developers/data-sets/acs-migration-flows.html
+
+**1.Original Code**
+
+```{r}
+tidycensus::get_flows() ## includes functionality for migration flow mapping 
+
+```
+
+If you view the Url then we can see that there are no characteristics that were looked for between 2016 to 2019, so it would be hard to connect to the population estimates we just pulled before. However, it goes contain counts so we may be able to manipulate the data to get number of movers per ear per county. Not sure what he was planning with these flows, but I will assume that was his goal.
+
+**2.Modified Code**
+
+```{r}
+movers <- tidycensus::get_flows(
+  geography= "county",
+  state= "sc", 
+  year= 2019
+)
+
+movers <- movers |>
+  filter(!is.na(estimate | moe )) |>
+  pivot_wider(names_from= 'variable', values_from= 'estimate', values_fill = 0) |>
+  rename('Margin of Error' = 'moe',
+         'Moved_In' = 'MOVEDIN',
+         'Moved_Out' = 'MOVEDOUT',
+         'Location 1' = 'FULL1_NAME',
+         'Location 2' = 'FULL2_NAME') |>
+  mutate(Net_Move = (Moved_In - Moved_Out)) |> # The MOVEDNET is not fully accurate so we redo it ourselves
+  select(-MOVEDNET) |>
+  filter(Moved_In >0 | Moved_Out >0)
+  
+
+#Leave for now, test to see if it would be insightful
+ggplot(movers, aes(x= Net_Move, y= `Location 1`)) + geom_point() 
+
+```
+
+Let us first define the data we want to pull from South Carolina on a county level. From there, let us filter for only the data where there is actual data in the `estimate` column -\> `filter(!is.na(estimate | moe ))`. From there, lets create new columns based on the different character strings in the `variable` column, and use the values from the `estimate` column that is attached to a corresponding string for their row. From there, we will get a `Moved In`, `Moved out`, `Margin of Error`, and `Net moved` columns with correspond with the `estimate` values.
+
+To finish it off, we will rename all the column and recalculate the Net movers for the State as the `MOVEDNET` after pivoting is not representing all the data. So once we make and check our new column we will remove the old one and only extract data where there are values greater that 0 in either of these two columns.
+
+If the value in `Net_Move` is negative they left the state from `Location 1` to `Location 2`, and if positive vice-versa.
+
+## Longitudinal Analysis
+
+I do think this code works and would not apply as the state is set to `CO` Colorado??
+
+**1.Original Code**
+
+```{r}
+## CAUTION: When a geographic entity changes name, the Census Bureau assigns it a new GEOID
+## CAUTION: variable IDs for the Data Profile are unique to each year, no good for time-series analysis
+
+## The safest option for time-series analysis in the ACS is the Comparison Profile Tables. 
+## available for both the 1-year and 5-year ACS, 
+## allow comparison of demographic indicators over the past five years for a given year. 
+## also brings additional variable harmonization, such as inflation-adjusted income estimates.
+## accessed using tidycensus::get_acs()
+
+
+## using the detail tables
+## first, check availability using load_variables() for years to analyze
+
+
+years <- 2010:2019
+names(years) <- years
+
+college_by_year <- map_dfr(years, ~{
+  get_acs(
+    geography = "county",
+    variables = college_vars,
+    state = "CO",
+    summary_var = "B15002_001",
+    survey = "acs1",
+    year = .x
+  )
+}, .id = "year")
+
+## you can set Margin of Error level in the get_acs() function with: moe_level = 99
+## uses Census recommended equations to adjust the moe from the default of 90% confidence interval.
+
+```
+
+**2.Modified Code**
+
+```{r}
+
+pop.longitude <- tidycensus::get_estimates(
+  geography = "county", 
+  product =  "characteristics", # Characteristics is the only one available from 2020 onward
+  breakdown = c("SEX", "AGEGROUP"),
+  breakdown_labels = TRUE,
+  state = "SC",
+  year = 2019,
+  geometry= TRUE,   
+  keep_geo_vars= TRUE,
+  time_series = TRUE
+)
+```
+
+Based on what I think he was going to do I used the same data we pulled earlier, however, we will also pull the geometry data as well. This data is county level data for population estimates and provides information on `sex` and `age group`. However, based on the title I believe he was attempting to graph this data as well.
+
+```{r}
+class(pop.longitude$DATE) # Check to make sure it is a sf class 
+
+# Turn this into a loop 
+pop.longitude_2 <- data.table(pop.longitude) |>
+  pivot_wider(names_from= 'SEX', values_from= 'value') 
+  #mutate(DATE = as.character(DATE)) |>
+  #mutate('DATE', str_replace, '1', '4/1/2010 Census_Base_Count') 
+
+  
+  
+# Fix the color scale and find a way to do only one year at a time 
+# easily done by changing acs 
+ggplot(pop.longitude$geometry) +
+  geom_sf(aes(fill= pop.longitude$value)) +
+  ggtitle("County Pop. Estimates") +
+  xlab("Longitude") + 
+  ylab("Latitude")
+
+
+```
